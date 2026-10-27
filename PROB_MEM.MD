@@ -17,3 +17,11 @@ Menu Item D: Crash-consistent storage, recovery after crash – If we crash in t
 
 Risk
 The most likely thing to go wrong is that a sensor goes bad and we do not have backups. Luckily, most sensors ship in multiple units, so we ideally should always have a backup.
+
+Purchased:
+2Pcs  Raspberry pi 4 1gb
+2 Pcs SHT40 High-Precisiion Ultra-Low-Power Temperature and Humidity Sensor, I2C(Amazon)
+16-bit I2C interface VEML7700 Ambient Light Sensor Module for Arduino(Amazon)
+3PCS Capacitive Analog Soil Mositure Sensor 3.3-5.5V Corrosion Resistant Humidity Detection Sensors Garden Watering DIY for Arduino for Raspberry Pi (Amazon)
+ADS115
+Breadboards
