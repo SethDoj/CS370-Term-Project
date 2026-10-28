@@ -11,13 +11,17 @@ LDFLAGS := $(EXTRA_LDFLAGS)
 BUILD   ?= build
 RUNNER  ?=
 
-COMMON_OBJS := $(addprefix $(BUILD)/common/,log.o crc.o i2c.o child.o record.o csvlog.o sampler.o)
-SENSOR_OBJS := $(BUILD)/sensors/sht40.o $(BUILD)/sensors/ads1115.o
-HUB_OBJS    := $(BUILD)/hub/hub_core.o
-LIB_OBJS    := $(COMMON_OBJS) $(SENSOR_OBJS) $(HUB_OBJS)
-BINS        := $(BUILD)/bin/hub $(BUILD)/bin/climate_sampler $(BUILD)/bin/soil_sampler
-UNIT_TESTS  := $(addprefix $(BUILD)/tests/,test_log test_crc test_record test_csvlog \
-               test_sht40 test_ads1115 test_hub)
+COMMON_OBJS  := $(addprefix $(BUILD)/common/,log.o crc.o i2c.o child.o record.o csvlog.o sampler.o)
+SENSOR_OBJS  := $(BUILD)/sensors/sht40.o $(BUILD)/sensors/ads1115.o
+HUB_OBJS     := $(BUILD)/hub/hub_core.o
+LIB_OBJS     := $(COMMON_OBJS) $(SENSOR_OBJS) $(HUB_OBJS)
+SUP_OBJS     := $(BUILD)/supervisor/backoff.o $(BUILD)/supervisor/child.o
+BINS         := $(BUILD)/bin/hub $(BUILD)/bin/climate_sampler $(BUILD)/bin/soil_sampler \
+                $(BUILD)/supervisor/supervisor $(BUILD)/stub/fake_child
+UNIT_TESTS   := $(addprefix $(BUILD)/tests/,test_log test_crc test_record test_csvlog \
+                test_sht40 test_ads1115 test_hub test_backoff)
+SCRIPT_TESTS := tests/test_fake_child.sh tests/test_supervisor.sh
+SUP_RUNNER   ?=
 
 .PHONY: all test asan memcheck picheck clean
 .SECONDARY: # keep objects built by pattern-rule chains
@@ -37,12 +41,23 @@ $(BUILD)/bin/%_sampler: $(BUILD)/%_sampler.o $(SENSOR_OBJS) $(COMMON_OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
+$(BUILD)/supervisor/supervisor: $(BUILD)/supervisor/supervisor.o $(SUP_OBJS) $(BUILD)/common/log.o
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+$(BUILD)/stub/fake_child: $(BUILD)/stub/fake_child.o $(BUILD)/common/log.o
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
 $(BUILD)/tests/%: tests/%.c $(LIB_OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
-test: $(UNIT_TESTS)
+$(BUILD)/tests/test_backoff: $(SUP_OBJS)
+
+test: $(UNIT_TESTS) $(BINS)
 	@for t in $(UNIT_TESTS); do echo "== $$t"; $(RUNNER) ./$$t || exit 1; done
+	@for s in $(SCRIPT_TESTS); do echo "== $$s"; SUP_RUNNER="$(SUP_RUNNER)" sh $$s $(BUILD) || exit 1; done
 
 asan:
 	$(MAKE) BUILD=build-asan \
@@ -50,7 +65,7 @@ asan:
 	    EXTRA_LDFLAGS="-fsanitize=address,undefined" test
 
 memcheck:
-	$(MAKE) BUILD=build RUNNER="sh tests/valgrind.sh" test
+	$(MAKE) BUILD=build RUNNER="sh tests/valgrind.sh" SUP_RUNNER="sh tests/valgrind.sh" test
 
 # Build and test on the Pi's own compiler: make picheck PI=user@host
 picheck:
