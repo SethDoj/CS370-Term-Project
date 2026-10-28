@@ -12,10 +12,11 @@ BUILD   ?= build
 RUNNER  ?=
 
 COMMON_OBJS  := $(BUILD)/common/log.o
-SUP_OBJS     := $(BUILD)/supervisor/backoff.o
-BINS         := $(BUILD)/stub/fake_child
+SUP_OBJS     := $(BUILD)/supervisor/backoff.o $(BUILD)/supervisor/child.o
+BINS         := $(BUILD)/supervisor/supervisor $(BUILD)/stub/fake_child
 UNIT_TESTS   := $(BUILD)/tests/test_log $(BUILD)/tests/test_backoff
-SCRIPT_TESTS := tests/test_fake_child.sh
+SCRIPT_TESTS := tests/test_fake_child.sh tests/test_supervisor.sh
+SUP_RUNNER   ?=
 
 .PHONY: all test asan memcheck picheck clean
 
@@ -24,6 +25,9 @@ all: $(BINS)
 $(BUILD)/%.o: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/supervisor/supervisor: $(BUILD)/supervisor/supervisor.o $(SUP_OBJS) $(COMMON_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 $(BUILD)/stub/fake_child: $(BUILD)/stub/fake_child.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
@@ -36,7 +40,7 @@ $(BUILD)/tests/test_backoff: $(SUP_OBJS)
 
 test: $(UNIT_TESTS) $(BINS)
 	@for t in $(UNIT_TESTS); do echo "== $$t"; $(RUNNER) ./$$t || exit 1; done
-	@for s in $(SCRIPT_TESTS); do echo "== $$s"; sh $$s $(BUILD) || exit 1; done
+	@for s in $(SCRIPT_TESTS); do echo "== $$s"; SUP_RUNNER="$(SUP_RUNNER)" sh $$s $(BUILD) || exit 1; done
 
 asan:
 	$(MAKE) BUILD=build-asan \
@@ -44,7 +48,7 @@ asan:
 	    EXTRA_LDFLAGS="-fsanitize=address,undefined" test
 
 memcheck:
-	$(MAKE) BUILD=build RUNNER="sh tests/valgrind.sh" test
+	$(MAKE) BUILD=build RUNNER="sh tests/valgrind.sh" SUP_RUNNER="sh tests/valgrind.sh" test
 
 # Build and test on the Pi's own compiler: make picheck PI=user@host
 picheck:

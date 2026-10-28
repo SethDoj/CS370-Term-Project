@@ -1,12 +1,14 @@
 // Stub child for supervisor tests, not part of the product. Writes a 1-byte
 // heartbeat to fd 3 every second, reports its open fds at start (to prove the
 // supervisor's fd hygiene), and exits on cue.
-//   fake_child [--tag T] [--exit-after SECONDS] [--exit-code CODE]
+//   fake_child [--tag T] [--exit-after SECONDS] [--exit-code CODE] [--ignore-term]
+//              [--ignore-sigpipe]
 #include "../common/log.h"
 
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,6 +83,19 @@ int main(int argc, char **argv)
         } else if (strcmp(argv[i], "--exit-code") == 0 && has_val &&
                    parse_int(argv[i + 1], &exit_code) && exit_code <= 255) {
             i++;
+        } else if (strcmp(argv[i], "--ignore-term") == 0) {
+            // Simulates a hung daemon so the supervisor's SIGKILL escalation is tested.
+            if (signal(SIGTERM, SIG_IGN) == SIG_ERR) {
+                log_msg(LVL_ERROR, "event=setup_failed step=signal errno=%d", errno);
+                return 2;
+            }
+        } else if (strcmp(argv[i], "--ignore-sigpipe") == 0) {
+            // Otherwise a dead supervisor kills us via SIGPIPE on the next
+            // heartbeat, which would mask whether PR_SET_PDEATHSIG works.
+            if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+                log_msg(LVL_ERROR, "event=setup_failed step=signal errno=%d", errno);
+                return 2;
+            }
         } else {
             log_msg(LVL_ERROR, "event=config_error reason=bad_option arg=%s", argv[i]);
             return 1;
