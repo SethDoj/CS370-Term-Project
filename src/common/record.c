@@ -2,6 +2,7 @@
 
 #include "crc.h"
 
+#include <assert.h>
 #include <string.h>
 
 static_assert(sizeof(struct record) == 40, "struct record must have no padding");

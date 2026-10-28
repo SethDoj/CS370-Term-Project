@@ -5,8 +5,8 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -98,19 +98,21 @@ int csvlog_append(int fd, const char *fields)
 
 int csvlog_row_ok(const char *row, size_t len)
 {
-    char hex[9];
-    char *end;
+    uint32_t want = 0;
 
     if (len > 0 && row[len - 1] == '\n')
         len--;
-    // Need at least one field byte, a comma and 8 hex digits.
+    // Need at least one field byte, a comma and 8 uppercase hex digits.
     if (len < 10 || row[len - 9] != ',')
         return 0;
-    memcpy(hex, row + len - 8, 8);
-    hex[8] = '\0';
-    errno = 0;
-    unsigned long want = strtoul(hex, &end, 16);
-    if (errno != 0 || *end != '\0')
-        return 0;
+    for (size_t i = len - 8; i < len; i++) {
+        char c = row[i];
+        if (c >= '0' && c <= '9')
+            want = (want << 4) | (uint32_t)(c - '0');
+        else if (c >= 'A' && c <= 'F')
+            want = (want << 4) | (uint32_t)(c - 'A' + 10);
+        else
+            return 0;
+    }
     return want == crc32(row, len - 9);
 }
