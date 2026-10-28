@@ -5,7 +5,7 @@
 ```
   SHT40 temp/RH        VEML7700 light        Capacitive soil probe (analog)
   I2C 0x44             I2C 0x10                     |
-      |                    |                  ADC: MCP3008 (SPI)  [to be purchased; see 1.4]
+      |                    |                  ADC: ADS1115
       |                    |                        |
  ==== kernel space: stock i2c-dev (/dev/i2c-1) and spidev (/dev/spidev0.0); no custom driver ====
       |                    |                        |
@@ -82,8 +82,10 @@ and no lock can be left held by a process that died mid-write.
 
 ### 1.4 Hardware gap and shared-bus risk
 
-- The soil probe is analog and the Pi has no analog inputs, so an ADC is required and has not
-  yet been purchased. We plan an MCP3008 on SPI rather than an ADS1115 on I2C, so the soil probe
-  does not share a bus with the SHT40 and VEML7700.
+- The soil probe is analog and the Pi has no analog inputs, so an ADC is required. We had planned
+  an MCP3008 on SPI to keep the probe off the I2C bus, but the ADC purchased is an **ADS1115
+  (I2C, 0x48)**, which soil_sampler now uses (single-shot AIN0, ±4.096 V, median of 16 reads).
+  The soil probe therefore shares I2C bus 1 with the SHT40 and VEML7700; a bus lockup now
+  takes out all three sensors, not two.
 - The SHT40 and VEML7700 share I2C bus 1. A bus lockup would affect both together despite
   their separate processes; this is recorded in the failure-mode table.
