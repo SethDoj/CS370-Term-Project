@@ -11,18 +11,33 @@ LDFLAGS := $(EXTRA_LDFLAGS)
 BUILD   ?= build
 RUNNER  ?=
 
-COMMON_OBJS := $(BUILD)/common/log.o
-UNIT_TESTS  := $(BUILD)/tests/test_log
+COMMON_OBJS := $(addprefix $(BUILD)/common/,log.o crc.o i2c.o child.o record.o csvlog.o sampler.o)
+SENSOR_OBJS := $(BUILD)/sensors/sht40.o $(BUILD)/sensors/ads1115.o
+HUB_OBJS    := $(BUILD)/hub/hub_core.o
+LIB_OBJS    := $(COMMON_OBJS) $(SENSOR_OBJS) $(HUB_OBJS)
+BINS        := $(BUILD)/bin/hub $(BUILD)/bin/climate_sampler $(BUILD)/bin/soil_sampler
+UNIT_TESTS  := $(addprefix $(BUILD)/tests/,test_log test_crc test_record test_csvlog \
+               test_sht40 test_ads1115 test_hub)
 
 .PHONY: all test asan memcheck picheck clean
+.SECONDARY: # keep objects built by pattern-rule chains
 
-all: $(COMMON_OBJS)
+all: $(BINS)
 
-$(BUILD)/%.o: src/%.c
+# Every object is rebuilt when any header changes: few files, no stale structs.
+$(BUILD)/%.o: src/%.c $(wildcard src/*/*.h)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/tests/%: tests/%.c $(COMMON_OBJS)
+$(BUILD)/bin/hub: $(BUILD)/hub/hub.o $(HUB_OBJS) $(COMMON_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+$(BUILD)/bin/%_sampler: $(BUILD)/%_sampler.o $(SENSOR_OBJS) $(COMMON_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+$(BUILD)/tests/%: tests/%.c $(LIB_OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
