@@ -5,7 +5,7 @@
 ```
   SHT40 temp/RH        VEML7700 light        Capacitive soil probe (analog)
   I2C 0x44             I2C 0x10                     |
-      |                    |                  ADC: MCP3008 (SPI)  [to be purchased; see 1.4]
+      |                    |                  ADC: ADS1115
       |                    |                        |
  ==== kernel space: stock i2c-dev (/dev/i2c-1) and spidev (/dev/spidev0.0); no custom driver ====
       |                    |                        |
