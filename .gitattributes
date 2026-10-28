@@ -1,0 +1,2 @@
+# Keep LF everywhere: Makefile recipes and shell scripts break under CRLF in WSL/Linux.
+* text=auto eol=lf

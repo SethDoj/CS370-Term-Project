@@ -1,7 +1,8 @@
 #!/bin/sh
 # Run a program under valgrind and fail on memory errors, leaks, OR leaked fds.
 # valgrind's --track-fds=yes only reports fds left open at exit; it does not
-# change the exit code, so we grep its log for them.
+# change the exit code, so we grep its log for them. Keep =yes, not =all:
+# =yes never lists fds inherited from the parent (e.g. WSL's stray /dev/ptmx).
 log=$(mktemp) || exit 2
 valgrind -q --error-exitcode=1 --leak-check=full --errors-for-leak-kinds=all \
     --track-fds=yes --log-file="$log" "$@"

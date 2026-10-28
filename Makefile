@@ -11,23 +11,32 @@ LDFLAGS := $(EXTRA_LDFLAGS)
 BUILD   ?= build
 RUNNER  ?=
 
-COMMON_OBJS := $(BUILD)/common/log.o
-UNIT_TESTS  := $(BUILD)/tests/test_log
+COMMON_OBJS  := $(BUILD)/common/log.o
+SUP_OBJS     := $(BUILD)/supervisor/backoff.o
+BINS         := $(BUILD)/stub/fake_child
+UNIT_TESTS   := $(BUILD)/tests/test_log $(BUILD)/tests/test_backoff
+SCRIPT_TESTS := tests/test_fake_child.sh
 
 .PHONY: all test asan memcheck picheck clean
 
-all: $(COMMON_OBJS)
+all: $(BINS)
 
 $(BUILD)/%.o: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD)/stub/fake_child: $(BUILD)/stub/fake_child.o $(COMMON_OBJS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
 $(BUILD)/tests/%: tests/%.c $(COMMON_OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
-test: $(UNIT_TESTS)
+$(BUILD)/tests/test_backoff: $(SUP_OBJS)
+
+test: $(UNIT_TESTS) $(BINS)
 	@for t in $(UNIT_TESTS); do echo "== $$t"; $(RUNNER) ./$$t || exit 1; done
+	@for s in $(SCRIPT_TESTS); do echo "== $$s"; sh $$s $(BUILD) || exit 1; done
 
 asan:
 	$(MAKE) BUILD=build-asan \
